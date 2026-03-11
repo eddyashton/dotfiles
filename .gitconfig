@@ -1,0 +1,11 @@
+[safe]
+	directory = /workspaces/CCF
+[user]
+	name = Eddy Ashton
+	email = edashton@microsoft.com
+[pull]
+	rebase = false
+[core]
+	editor = nano
+[init]
+	defaultBranch = main
