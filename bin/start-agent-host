@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v code-host >/dev/null 2>&1; then
+  printf 'code-host is not installed\n' >&2
+  exit 1
+fi
+
+if [ "${CODESPACES:-}" = "true" ]; then
+  tunnel_name="${AGENT_HOST_TUNNEL_NAME:-${CODESPACE_NAME:?}}"
+else
+  tunnel_name="${AGENT_HOST_TUNNEL_NAME:-}"
+  if [ -z "$tunnel_name" ]; then
+    printf 'Set AGENT_HOST_TUNNEL_NAME outside Codespaces\n' >&2
+    exit 1
+  fi
+fi
+
+code-host agent host \
+  --tunnel \
+  --name "$tunnel_name"
+
+mkdir -p "$HOME/.config/agent-workstation"
+touch "$HOME/.config/agent-workstation/autostart"
