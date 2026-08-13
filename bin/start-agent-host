@@ -7,18 +7,26 @@ if ! command -v code-host >/dev/null 2>&1; then
 fi
 
 if [ "${CODESPACES:-}" = "true" ]; then
-  tunnel_name="${AGENT_HOST_TUNNEL_NAME:-${CODESPACE_NAME:?}}"
+  tunnel_name="${AGENT_HOST_TUNNEL_NAME:-ccf-curly-system}"
 else
   tunnel_name="${AGENT_HOST_TUNNEL_NAME:-}"
+
   if [ -z "$tunnel_name" ]; then
     printf 'Set AGENT_HOST_TUNNEL_NAME outside Codespaces\n' >&2
     exit 1
   fi
 fi
 
+if [[ ! "$tunnel_name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  printf 'Invalid agent host tunnel name: %s\n' "$tunnel_name" >&2
+  exit 1
+fi
+
+mkdir -p "$HOME/.cache"
+exec 9>"$HOME/.cache/start-agent-host.lock"
+flock -n 9 || exit 0
+
 code-host agent host \
   --tunnel \
-  --name "$tunnel_name"
-
-mkdir -p "$HOME/.config/agent-workstation"
-touch "$HOME/.config/agent-workstation/autostart"
+  --name "$tunnel_name" \
+  9>&-
