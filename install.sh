@@ -40,11 +40,18 @@ link_path \
   "$dotfiles_dir/.agents/AGENTS.md" \
   "$HOME/.config/opencode/AGENTS.md"
 
-# Personal Agent Host launcher.
-link_path \
-  "$dotfiles_dir/bin/start-agent-host" \
-  "$HOME/.local/bin/start-agent-host"
-
-chmod +x -- "$dotfiles_dir/bin/start-agent-host"
+# Personal Agent Host lifecycle commands.
+chmod +x -- "$dotfiles_dir/bin/agent-host"
+for command_name in \
+  agent-host \
+  start-agent-host \
+  stop-agent-host \
+  restart-agent-host \
+  agent-host-status
+do
+  link_path \
+    "$dotfiles_dir/bin/agent-host" \
+    "$HOME/.local/bin/$command_name"
+done
 
 printf 'Dotfiles installed from %s\n' "$dotfiles_dir"

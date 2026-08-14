@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CLI_LOCKS=(
+  "$HOME/.vscode-server/cli/agent-host-stable.lock"
+  "$HOME/.vscode/cli/agent-host-stable.lock"
+)
+
+find_supervisors() {
+  ps -eo pid=,args= | awk \
+    '$2 ~ /(^|\/)code-host$/ && $3 == "agent" && $4 == "host" { print $1 }'
+}
+
+status() {
+  local -a supervisor_pids=()
+  mapfile -t supervisor_pids < <(find_supervisors)
+
+  case "${#supervisor_pids[@]}" in
+    0)
+      printf 'STOPPED\n'
+      ;;
+    1)
+      printf 'RUNNING\n'
+      ps -o pid=,ppid=,pgid=,lstart=,stat=,args= -p "${supervisor_pids[0]}"
+      ;;
+    *)
+      printf 'UNHEALTHY: %s supervisors\n' "${#supervisor_pids[@]}"
+      ps -o pid=,ppid=,pgid=,lstart=,stat=,args= -p "$(
+        IFS=,
+        printf '%s' "${supervisor_pids[*]}"
+      )"
+      return 1
+      ;;
+  esac
+}
+
+start() {
+  local tunnel_name
+  local -a supervisor_pids=()
+  mapfile -t supervisor_pids < <(find_supervisors)
+
+  if [ "${#supervisor_pids[@]}" -eq 1 ]; then
+    printf 'Agent Host is already running (PID %s)\n' "${supervisor_pids[0]}"
+    return
+  fi
+
+  if [ "${#supervisor_pids[@]}" -gt 1 ]; then
+    printf 'Multiple Agent Hosts are running; use: agent-host restart\n' >&2
+    return 1
+  fi
+
+  if [ "${CODESPACES:-}" = "true" ]; then
+    tunnel_name="${AGENT_HOST_TUNNEL_NAME:-ccf-curly-system}"
+  else
+    tunnel_name="${AGENT_HOST_TUNNEL_NAME:-}"
+  fi
+
+  if [[ ! "$tunnel_name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+    printf 'Set AGENT_HOST_TUNNEL_NAME to a valid tunnel name\n' >&2
+    return 1
+  fi
+
+  rm -f -- "${CLI_LOCKS[@]}"
+  printf 'Starting Agent Host tunnel %s\n' "$tunnel_name"
+  code-host agent host --tunnel --name "$tunnel_name"
+}
+
+stop() {
+  local pgid
+  local pid
+  local -a supervisor_pids=()
+  local -a targets=()
+  local -a wait_args=()
+  mapfile -t supervisor_pids < <(find_supervisors)
+
+  if [ "${#supervisor_pids[@]}" -eq 0 ]; then
+    printf 'Agent Host is already stopped\n'
+    rm -f -- "${CLI_LOCKS[@]}"
+    return
+  fi
+
+  printf 'Stopping Agent Host supervisor(s): %s\n' "${supervisor_pids[*]}"
+  for pid in "${supervisor_pids[@]}"; do
+    pgid="$(ps -o pgid= -p "$pid" | tr -d ' ')"
+    if [ "$pgid" = "$pid" ]; then
+      targets+=("-$pgid")
+    else
+      targets+=("$pid")
+    fi
+    wait_args+=("--pid=$pid")
+  done
+
+  kill -TERM -- "${targets[@]}" 2>/dev/null || true
+  timeout 3 tail "${wait_args[@]}" -f /dev/null || \
+    kill -KILL -- "${targets[@]}" 2>/dev/null || true
+  rm -f -- "${CLI_LOCKS[@]}"
+  printf 'Agent Host stopped\n'
+}
+
+usage() {
+  printf 'Usage: agent-host {start|stop|kill|restart|status}\n' >&2
+  exit 2
+}
+
+case "${0##*/}" in
+  start-agent-host) action="start" ;;
+  stop-agent-host) action="stop" ;;
+  restart-agent-host) action="restart" ;;
+  agent-host-status) action="status" ;;
+  *) action="${1:-status}"; [ "$#" -eq 0 ] || shift ;;
+esac
+
+[ "$#" -eq 0 ] || usage
+case "$action" in
+  start) start ;;
+  stop | kill) stop ;;
+  restart) stop; start ;;
+  status) status ;;
+  *) usage ;;
+esac
