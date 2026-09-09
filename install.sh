@@ -22,7 +22,7 @@ link_path() {
   ln -s -- "$source_path" "$destination"
 }
 
-# Generic, cross-harness agent configuration.
+# Generic, cross-harness agent instructions and portable skills.
 link_path \
   "$dotfiles_dir/.agents" \
   "$HOME/.agents"
@@ -39,6 +39,11 @@ link_path \
 link_path \
   "$dotfiles_dir/.agents/AGENTS.md" \
   "$HOME/.config/opencode/AGENTS.md"
+
+# Copilot-specific custom agents.
+link_path \
+  "$dotfiles_dir/.copilot/agents" \
+  "$HOME/.copilot/agents"
 
 # Personal Agent Host lifecycle commands.
 chmod +x -- "$dotfiles_dir/bin/agent-host"
