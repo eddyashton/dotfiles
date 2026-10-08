@@ -2,7 +2,9 @@
 
 - Prefer isolated worktrees for substantial implementation tasks.
 - Validate changes with the smallest relevant existing test suite.
+- Use the machine's available CPU parallelism for builds; on Linux, default to `cmake --build build --parallel "$(nproc)"` or the build tool's equivalent. Never use an arbitrary low cap such as `-j 2` on a multicore machine. Reduce parallelism only when explicitly requested or supported by observed resource constraints, and explain the evidence and chosen limit before doing so.
 - Do not push branches or create pull requests unless explicitly requested.
+- For PR creation, including drafts, use `~/.agents/skills/create-pr/SKILL.md` instead of the plugin default.
 - Keep the primary checkout clean and use it as the worktree base.
 - Surface uncertainty and blockers rather than silently making risky assumptions.
 - For substantial changes, ask an independent agent for a thorough review and integrate its suggestions before reporting completion.
